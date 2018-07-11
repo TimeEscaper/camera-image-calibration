@@ -14,7 +14,6 @@ void findCorners(const std::vector<std::vector<cv::Point>> &contours,
 double distance(cv::Point2f a, cv::Point2f b);
 double distance(cv::Point2f linePoint1, cv::Point2f linePoint2, cv::Point2f point);
 cv::Point center(std::vector<cv::Point> contour);
-void getLineParameters(cv::Point2f point1, cv::Point2f point2, double &slope, double &b);
 
 void show(cv::Mat image, const char* name) {
     cv::namedWindow(name);
@@ -49,9 +48,24 @@ cv::Point center(std::vector<cv::Point> contour) {
     return cv::Point2f(moments.m10/moments.m00, moments.m01/moments.m00);
 }
 
-void getLineParameters(cv::Point2f point1, cv::Point2f point2, double &slope, double &b) {
-    slope = (point2.y - point1.y) / (point2.x - point1.x);
-    b - point1.y - slope * point1.x;
+float cross(cv::Point2f v1,cv::Point2f v2)
+{
+    return v1.x*v2.y - v1.y*v2.x;
+}
+
+bool getIntersectionPoint(cv::Point2f a1, cv::Point2f a2, cv::Point2f b1, cv::Point2f b2, cv::Point2f& intersection)
+{
+    cv::Point2f p = a1;
+    cv::Point2f q = b1;
+    cv::Point2f r(a2-a1);
+    cv::Point2f s(b2-b1);
+
+    if(cross(r,s) == 0) {return false;}
+
+    float t = cross(q-p,s)/cross(r,s);
+
+    intersection = p + t*r;
+    return true;
 }
 
 bool findQrMarks(const cv::Mat &image, std::vector<std::vector<cv::Point>> &markContours) {
@@ -145,7 +159,7 @@ void findCorners(const std::vector<std::vector<cv::Point>> &contours,
 
     //Process cath mark
     double maxDist = 0;
-    double cathMax = 0;
+    int cathMax = 0;
     for (int i = 0; i < contours[cath].size(); i++) {
         double dist = distance(centers[hypR], centers[hypL], contours[cath][i]);
         if (dist > maxDist) {
@@ -156,7 +170,7 @@ void findCorners(const std::vector<std::vector<cv::Point>> &contours,
 
     //Process hypR mark
     double minDist = INFINITY;
-    double hypRMin = 0;
+    int hypRMin = 0;
     for (int i = 0; i < contours[hypR].size(); i++) {
         cv::Point point = contours[hypR][i];
         if (point.x > centers[hypR].x) {
@@ -169,7 +183,7 @@ void findCorners(const std::vector<std::vector<cv::Point>> &contours,
     corners.push_back(contours[hypR][hypRMin]);
 
     minDist = INFINITY;
-    double hypLMin = 0;
+    int hypLMin = 0;
     for (int i = 0; i < contours[hypL].size(); i++) {
         cv::Point point = contours[hypL][i];
         if (point.x < centers[hypL].x) {
@@ -180,23 +194,32 @@ void findCorners(const std::vector<std::vector<cv::Point>> &contours,
         }
     }
     corners.push_back(contours[hypL][hypLMin]);
-}
 
-void computeFourthCorner(std::vector<cv::Point> &corners) {
+    maxDist = 0;
+    int hypRMax = 0;
+    for (int i = 0; i < contours[hypR].size(); i++) {
+        cv::Point point = contours[hypR][i];
+        double diagDist = distance(centers[hypR], centers[hypL], point);
+        double sideDist = distance(corners[0], corners[1], point);
+        if (diagDist + sideDist > maxDist) {
+            maxDist = diagDist + sideDist; hypRMax = i;
+        }
+    }
 
-    float slope1 = ((float)(corners[0].y - corners[1].y)) / ((float)(corners[0].x - corners[1].x));
-    float slope2 = ((float)(corners[0].y - corners[2].y)) / ((float)(corners[0].x - corners[2].x));
+    maxDist = 0;
+    int hypLMax = 0;
+    for (int i = 0; i < contours[hypL].size(); i++) {
+        cv::Point point = contours[hypL][i];
+        double diagDist = distance(centers[hypR], centers[hypL], point);
+        double sideDist = distance(corners[0], corners[2], point);
+        if (diagDist + sideDist > maxDist) {
+            maxDist = diagDist + sideDist; hypLMax = i;
+        }
+    }
 
-    float b1 = corners[2].y - slope1 * corners[2].x;
-    float b2 = corners[1].y - slope2 * corners[1].x;
-
-    float delta = -slope1 + slope2;
-    float delta1 = b1 - b2;
-    float delta2 = -slope1*b2 + slope2*b1;
-
-    cv::Point2f point(delta1/delta, delta2/delta);
-    corners.push_back(point);
-
+    cv::Point2f fourth;
+    getIntersectionPoint(corners[1], contours[hypR][hypRMax], corners[2], contours[hypL][hypLMax], fourth);
+    corners.push_back(fourth);
 }
 
 int main() {
@@ -207,27 +230,17 @@ int main() {
     if (!findQrMarks(src, markContours))
         return 0;
 
-    cv::drawContours(src, markContours, -1, cv::Scalar(255, 0, 0));
-    show(src, "QR marks");
+    //cv::drawContours(src, markContours, -1, cv::Scalar(255, 0, 0));
+    //show(src, "QR marks");
 
     std::vector<cv::Point> corners;
     findCorners(markContours, corners);
-    //computeFourthCorner(corners);
-    for (int i = 0; i < corners.size(); i++) {
-        cv::circle(src, corners[i], 5, cv::Scalar(0,0,255));
-    }
 
-    /**
-    cv::RotatedRect rect = cv::minAreaRect(corners);
 
-    cv::Point2f rect_points[4]; rect.points( rect_points );
-    for( int j = 0; j < 4; j++ )
-        line( src, rect_points[j], rect_points[(j+1)%4], cv::Scalar(0,255,0), 1, 8 );
-**/
-    //cv::line(src, corners[0], corners[1], cv::Scalar(0,255,0));
-    //cv::line(src, corners[0], corners[2], cv::Scalar(0,255,0));
-    //cv::line(src, corners[3], corners[1], cv::Scalar(0,255,0));
-    //cv::line(src, corners[3], corners[2], cv::Scalar(0,255,0));
+    cv::line(src, corners[0], corners[1], cv::Scalar(0,255,0));
+    cv::line(src, corners[0], corners[2], cv::Scalar(0,255,0));
+    cv::line(src, corners[3], corners[1], cv::Scalar(0,255,0));
+    cv::line(src, corners[3], corners[2], cv::Scalar(0,255,0));
 
     show(src, "Corners");
 
