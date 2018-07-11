@@ -5,15 +5,16 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 
-#define TEST_IMAGE "/home/sibirsky/calibration_images/Hnb8cOCVBI4.jpg"
+#define TEST_IMAGE "/home/sibirsky/calibration_images/t55LVeq3esM.jpg"
 
 void show(cv::Mat image, const char* name);
 bool findQrMarks(const cv::Mat &image, std::vector<std::vector<cv::Point>> &markContours);
-void findThreeCorners(const std::vector<std::vector<cv::Point>> &contours,
-                      std::vector<cv::Point> &corners, std::vector<cv::Point> &mcenters);
+void findCorners(const std::vector<std::vector<cv::Point>> &contours,
+                 std::vector<cv::Point> &corners);
 double distance(cv::Point2f a, cv::Point2f b);
 double distance(cv::Point2f linePoint1, cv::Point2f linePoint2, cv::Point2f point);
 cv::Point center(std::vector<cv::Point> contour);
+void getLineParameters(cv::Point2f point1, cv::Point2f point2, double &slope, double &b);
 
 void show(cv::Mat image, const char* name) {
     cv::namedWindow(name);
@@ -46,6 +47,11 @@ double distance(cv::Point2f L, cv::Point2f M, cv::Point2f J) {
 cv::Point center(std::vector<cv::Point> contour) {
     cv::Moments moments = cv::moments(contour, false);
     return cv::Point2f(moments.m10/moments.m00, moments.m01/moments.m00);
+}
+
+void getLineParameters(cv::Point2f point1, cv::Point2f point2, double &slope, double &b) {
+    slope = (point2.y - point1.y) / (point2.x - point1.x);
+    b - point1.y - slope * point1.x;
 }
 
 bool findQrMarks(const cv::Mat &image, std::vector<std::vector<cv::Point>> &markContours) {
@@ -109,10 +115,11 @@ bool findQrMarks(const cv::Mat &image, std::vector<std::vector<cv::Point>> &mark
     return false;
 }
 
-void findThreeCorners(const std::vector<std::vector<cv::Point>> &contours,
-                      std::vector<cv::Point> &corners, std::vector<cv::Point> &mcenters) {
+void findCorners(const std::vector<std::vector<cv::Point>> &contours,
+                 std::vector<cv::Point> &corners) {
     if (contours.size() != 3)
         return;
+    corners.clear();
 
     int cath, hypR, hypL;
 
@@ -173,10 +180,23 @@ void findThreeCorners(const std::vector<std::vector<cv::Point>> &contours,
         }
     }
     corners.push_back(contours[hypL][hypLMin]);
+}
 
-    mcenters.push_back(centers[cath]);
-    mcenters.push_back(centers[hypR]);
-    mcenters.push_back(centers[hypL]);
+void computeFourthCorner(std::vector<cv::Point> &corners) {
+
+    float slope1 = ((float)(corners[0].y - corners[1].y)) / ((float)(corners[0].x - corners[1].x));
+    float slope2 = ((float)(corners[0].y - corners[2].y)) / ((float)(corners[0].x - corners[2].x));
+
+    float b1 = corners[2].y - slope1 * corners[2].x;
+    float b2 = corners[1].y - slope2 * corners[1].x;
+
+    float delta = -slope1 + slope2;
+    float delta1 = b1 - b2;
+    float delta2 = -slope1*b2 + slope2*b1;
+
+    cv::Point2f point(delta1/delta, delta2/delta);
+    corners.push_back(point);
+
 }
 
 int main() {
@@ -191,14 +211,24 @@ int main() {
     show(src, "QR marks");
 
     std::vector<cv::Point> corners;
-    std::vector<cv::Point> mcenters;
-    findThreeCorners(markContours, corners, mcenters);
+    findCorners(markContours, corners);
+    //computeFourthCorner(corners);
     for (int i = 0; i < corners.size(); i++) {
-        cv::circle(src, corners[i], 5, cv::Scalar(0,255,0));
+        cv::circle(src, corners[i], 5, cv::Scalar(0,0,255));
     }
-    cv::circle(src, mcenters[0], 5, cv::Scalar(255,0,0));
-    cv::circle(src, mcenters[1], 5, cv::Scalar(0,255,0));
-    cv::circle(src, mcenters[2], 5, cv::Scalar(0,0,255));
+
+    /**
+    cv::RotatedRect rect = cv::minAreaRect(corners);
+
+    cv::Point2f rect_points[4]; rect.points( rect_points );
+    for( int j = 0; j < 4; j++ )
+        line( src, rect_points[j], rect_points[(j+1)%4], cv::Scalar(0,255,0), 1, 8 );
+**/
+    //cv::line(src, corners[0], corners[1], cv::Scalar(0,255,0));
+    //cv::line(src, corners[0], corners[2], cv::Scalar(0,255,0));
+    //cv::line(src, corners[3], corners[1], cv::Scalar(0,255,0));
+    //cv::line(src, corners[3], corners[2], cv::Scalar(0,255,0));
+
     show(src, "Corners");
 
     return 0;
