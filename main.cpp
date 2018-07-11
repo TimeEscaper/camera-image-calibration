@@ -5,7 +5,7 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 
-#define TEST_IMAGE "/home/sibirsky/calibration_images/t55LVeq3esM.jpg"
+#define TEST_IMAGE "/home/sibirsky/calibration_images/Hnb8cOCVBI4.jpg"
 
 void show(cv::Mat image, const char* name);
 bool findQrMarks(const cv::Mat &image, std::vector<std::vector<cv::Point>> &markContours);
@@ -36,6 +36,10 @@ double distance(cv::Point2f L, cv::Point2f M, cv::Point2f J) {
     // Now that we have a, b, c from the equation ax + by + c, time to substitute (x,y) by values from the Point J
 
     pdist = (a * J.x + (b * J.y) + c) / sqrt((a * a) + (b * b));
+
+    if (pdist < 0)
+        pdist = -pdist;
+
     return pdist;
 }
 
