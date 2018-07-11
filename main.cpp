@@ -5,7 +5,7 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 
-#define TEST_IMAGE "/home/sibirsky/calibration_images/t55LVeq3esM.jpg"
+#define TEST_IMAGE "/home/sibirsky/calibration_images/a_mIC88p93c.jpg"
 
 void show(cv::Mat image, const char* name);
 bool findQrMarks(const cv::Mat &image, std::vector<std::vector<cv::Point>> &markContours);
@@ -14,6 +14,8 @@ void findCorners(const std::vector<std::vector<cv::Point>> &contours,
 double distance(cv::Point2f a, cv::Point2f b);
 double distance(cv::Point2f linePoint1, cv::Point2f linePoint2, cv::Point2f point);
 cv::Point center(std::vector<cv::Point> contour);
+void sortPoints(const std::vector<cv::Point> &points, std::vector<cv::Point> &sorted);
+void transform(const std::vector<cv::Point> &points, const cv::Mat &image, cv::Mat &transformed);
 
 void show(cv::Mat image, const char* name) {
     cv::namedWindow(name);
@@ -222,8 +224,64 @@ void findCorners(const std::vector<std::vector<cv::Point>> &contours,
     corners.push_back(fourth);
 }
 
+void sortPoints(const std::vector<cv::Point> &points, std::vector<cv::Point> &sorted) {
+    cv::Point sortedPoints[4];
+    int maxSum = points[0].x + points[0].y;
+    int minSum = maxSum;
+    int maxDiff = points[0].x - points[0].y;
+    int minDiff = maxDiff;
+    int minSumIndex = 0; int maxSumIndex = 0;
+    int minDiffIndex = 0; int maxDiffIndex = 0;
+    for (int i = 1; i < points.size(); i++) {
+        int sum = points[i].x + points[i].y;
+        if (sum > maxSum) {
+            maxSum = sum; maxSumIndex = i;
+        }
+        else if (sum < minSum) {
+            minSum = sum; minSumIndex = i;
+        }
+        int diff = points[i].x - points[i].y;
+        if (diff > maxDiff) {
+            maxDiff = diff; maxDiffIndex = i;
+        } else if (diff < minDiff) {
+            minDiff = diff; minDiffIndex = i;
+        }
+    }
+    sortedPoints[0] = points[minSumIndex];
+    sortedPoints[2] = points[maxSumIndex];
+    sortedPoints[1] = points[minDiffIndex];
+    sortedPoints[3] = points[maxDiffIndex];
+
+    sorted.clear();
+    for (int i = 0; i < 4; i++)
+        sorted.push_back(sortedPoints[i]);
+}
+
+void transform(const std::vector<cv::Point> &points, const cv::Mat &image, cv::Mat &transformed) {
+     std::vector<cv::Point> srcPoints;
+     sortPoints(points, srcPoints);
+
+     double width = std::max(distance(srcPoints[2], srcPoints[3]), distance(srcPoints[1], srcPoints[0]));
+     double height = std::max(distance(srcPoints[1], srcPoints[2]), distance(srcPoints[0], srcPoints[3]));
+     int size = std::max(width, height);
+
+     cv::Point2f src[4];
+     for (int i = 0; i < 4; i++)
+         src[i] = srcPoints[i];
+
+     cv::Point2f dest[4];
+     dest[0] = cv::Point2f(0,0);
+     dest[1] = cv::Point2f(size-1, 0);
+     dest[2] = cv::Point2f(size-1, size-1);
+     dest[3] = cv::Point2f(0, size-1);
+
+     cv::Mat transformMat = cv::getPerspectiveTransform(src, dest);
+     cv::warpPerspective(image, transformed, transformMat, cv::Size(size, size));
+}
+
 int main() {
     cv::Mat src = cv::imread(TEST_IMAGE);
+    cv::Mat canvas = src;
     show(src, "Source");
 
     std::vector<std::vector<cv::Point>> markContours;
@@ -231,18 +289,22 @@ int main() {
         return 0;
 
     //cv::drawContours(src, markContours, -1, cv::Scalar(255, 0, 0));
-    //show(src, "QR marks");
+    //show(canvas, "QR marks");
 
     std::vector<cv::Point> corners;
     findCorners(markContours, corners);
 
+    cv::line(canvas, corners[0], corners[1], cv::Scalar(0,255,0));
+    cv::line(canvas, corners[0], corners[2], cv::Scalar(0,255,0));
+    cv::line(canvas, corners[3], corners[1], cv::Scalar(0,255,0));
+    cv::line(canvas, corners[3], corners[2], cv::Scalar(0,255,0));
 
-    cv::line(src, corners[0], corners[1], cv::Scalar(0,255,0));
-    cv::line(src, corners[0], corners[2], cv::Scalar(0,255,0));
-    cv::line(src, corners[3], corners[1], cv::Scalar(0,255,0));
-    cv::line(src, corners[3], corners[2], cv::Scalar(0,255,0));
+    show(canvas, "Corners");
 
-    show(src, "Corners");
+
+    cv::Mat transformed;
+    transform(corners, src, transformed);
+    show(transformed, "Perspective transformed");
 
     return 0;
 }
