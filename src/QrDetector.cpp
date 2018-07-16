@@ -114,8 +114,6 @@ void QrDetector::findCorners(const std::vector<std::vector<cv::Point>> &contours
             maxDist = dist; cathMax = i;
         }
     }
-    //std::cout << "Cath: " << contours[cath][cathMax] << std::endl;
-    //corners.push_back(contours[cath][cathMax]);
 
     //Process hypR mark
     double minDist = INFINITY;
@@ -129,9 +127,8 @@ void QrDetector::findCorners(const std::vector<std::vector<cv::Point>> &contours
             }
         }
     }
-    //std::cout << "HypR: " << contours[hypR][hypRMin] << std::endl;
-     //corners.push_back(contours[hypR][hypRMin]);
 
+    // Process hypL mark
     minDist = INFINITY;
     int hypLMin = 0;
     for (int i = 0; i < contours[hypL].size(); i++) {
@@ -143,7 +140,6 @@ void QrDetector::findCorners(const std::vector<std::vector<cv::Point>> &contours
             }
         }
     }
-    //corners.push_back(contours[hypL][hypLMin]);
 
     maxDist = 0;
     int hypRMax = 0;
@@ -168,7 +164,8 @@ void QrDetector::findCorners(const std::vector<std::vector<cv::Point>> &contours
     }
 
     cv::Point2f fourth;
-    geom::intersectionPoint(contours[hypR][hypRMin], contours[hypR][hypRMax], contours[hypL][hypLMin], contours[hypL][hypLMax], fourth);
+    geom::intersectionPoint(contours[hypR][hypRMin], contours[hypR][hypRMax],
+                            contours[hypL][hypLMin], contours[hypL][hypLMax], fourth);
 
     cv::Point hypCenter = cv::Point((centers[hypL].x+centers[hypR].x)/2,
                                     (centers[hypL].y+centers[hypR].y)/2);

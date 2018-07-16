@@ -10,6 +10,8 @@
 #include <opencv2/core/types.hpp>
 #include <opencv2/core/mat.hpp>
 
+#define DEFAULT_SIZE 500
+
 class ImageTransformer {
 
 public:
@@ -19,8 +21,6 @@ public:
 
     ImageTransformer& operator=(const ImageTransformer &other);
 
-    static void sortPoints(const std::vector<cv::Point> &points, std::vector<cv::Point> &sorted);
-
 
     void transform(const cv::Mat &image, cv::Mat &transformed);
 
@@ -28,8 +28,7 @@ private:
 
     std::vector<cv::Point> points;
     cv::Mat transformMat;
-    int size;
-    double width, height;
+    int size = DEFAULT_SIZE;
 };
 
 
