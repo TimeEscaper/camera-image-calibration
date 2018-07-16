@@ -114,7 +114,8 @@ void QrDetector::findCorners(const std::vector<std::vector<cv::Point>> &contours
             maxDist = dist; cathMax = i;
         }
     }
-    corners.push_back(contours[cath][cathMax]);
+    //std::cout << "Cath: " << contours[cath][cathMax] << std::endl;
+    //corners.push_back(contours[cath][cathMax]);
 
     //Process hypR mark
     double minDist = INFINITY;
@@ -128,7 +129,8 @@ void QrDetector::findCorners(const std::vector<std::vector<cv::Point>> &contours
             }
         }
     }
-    corners.push_back(contours[hypR][hypRMin]);
+    //std::cout << "HypR: " << contours[hypR][hypRMin] << std::endl;
+     //corners.push_back(contours[hypR][hypRMin]);
 
     minDist = INFINITY;
     int hypLMin = 0;
@@ -141,14 +143,14 @@ void QrDetector::findCorners(const std::vector<std::vector<cv::Point>> &contours
             }
         }
     }
-    corners.push_back(contours[hypL][hypLMin]);
+    //corners.push_back(contours[hypL][hypLMin]);
 
     maxDist = 0;
     int hypRMax = 0;
     for (int i = 0; i < contours[hypR].size(); i++) {
         cv::Point point = contours[hypR][i];
         double diagDist = geom::distance(centers[hypR], centers[hypL], point);
-        double sideDist = geom::distance(corners[0], corners[1], point);
+        double sideDist = geom::distance(contours[cath][cathMax], contours[hypR][hypRMin], point);
         if (diagDist + sideDist > maxDist) {
             maxDist = diagDist + sideDist; hypRMax = i;
         }
@@ -159,13 +161,25 @@ void QrDetector::findCorners(const std::vector<std::vector<cv::Point>> &contours
     for (int i = 0; i < contours[hypL].size(); i++) {
         cv::Point point = contours[hypL][i];
         double diagDist = geom::distance(centers[hypR], centers[hypL], point);
-        double sideDist = geom::distance(corners[0], corners[2], point);
+        double sideDist = geom::distance(contours[cath][cathMax], contours[hypL][hypLMin], point);
         if (diagDist + sideDist > maxDist) {
             maxDist = diagDist + sideDist; hypLMax = i;
         }
     }
 
     cv::Point2f fourth;
-    geom::intersectionPoint(corners[1], contours[hypR][hypRMax], corners[2], contours[hypL][hypLMax], fourth);
-    corners.push_back(fourth);
+    geom::intersectionPoint(contours[hypR][hypRMin], contours[hypR][hypRMax], contours[hypL][hypLMin], contours[hypL][hypLMax], fourth);
+
+    cv::Point hypCenter = cv::Point((centers[hypL].x+centers[hypR].x)/2,
+                                    (centers[hypL].y+centers[hypR].y)/2);
+    corners.push_back(contours[cath][cathMax]);
+    if (centers[cath].y <= hypCenter.y) {
+        corners.push_back(contours[hypR][hypRMin]);
+        corners.push_back(fourth);
+        corners.push_back(contours[hypL][hypLMin]);
+    } else {
+        corners.push_back(contours[hypL][hypLMin]);
+        corners.push_back(fourth);
+        corners.push_back(contours[hypR][hypRMin]);
+    }
 }

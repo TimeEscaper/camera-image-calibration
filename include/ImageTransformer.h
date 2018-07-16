@@ -13,17 +13,23 @@
 class ImageTransformer {
 
 public:
+    ImageTransformer();
     ImageTransformer(const std::vector<cv::Point> &rectPoints);
     ImageTransformer(ImageTransformer &other);
+
+    ImageTransformer& operator=(const ImageTransformer &other);
+
+    static void sortPoints(const std::vector<cv::Point> &points, std::vector<cv::Point> &sorted);
+
 
     void transform(const cv::Mat &image, cv::Mat &transformed);
 
 private:
-    void sortPoints(const std::vector<cv::Point> &points, std::vector<cv::Point> &sorted);
 
     std::vector<cv::Point> points;
     cv::Mat transformMat;
     int size;
+    double width, height;
 };
 
 
